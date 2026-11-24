@@ -1,27 +1,27 @@
-"""Statistics helpers for timing analysis."""
+"""Statistics helpers for the attacker."""
+from __future__ import annotations
+
 from statistics import median
-from typing import List
+from typing import Dict
 
 
-def median_time(samples: List[float]) -> float:
-    """Return the median of a list of timing samples (robust to outliers/jitter)."""
+def median_time(samples: list[float]) -> float:
+    """Median of a list of timing samples in microseconds."""
     if not samples:
         raise ValueError("no samples provided")
     return median(samples)
 
 
-def best_candidate(candidate_medians: dict) -> str:
-    """Given {candidate_digit: median_time}, return the digit with the highest
-    median latency — the one most likely to be the correct next character,
-    since a correct prefix character means one more comparison iteration
-    before the early exit."""
-    return max(candidate_medians, key=candidate_medians.get)
+def best_candidate(medians: Dict[str, float]) -> str:
+    """Candidate with the highest median latency: one more compare
+    iteration ran before the early exit, so it's the likely correct digit."""
+    return max(medians, key=medians.get)
 
 
-def signal_strength(candidate_medians: dict) -> float:
-    """Gap between the top and second-best candidate. Used to report confidence
-    and to decide whether to re-sample before locking in a digit."""
-    values = sorted(candidate_medians.values(), reverse=True)
-    if len(values) < 2:
+def confidence(medians: Dict[str, float]) -> float:
+    """Relative margin between the best and second-best candidate, as a
+    fraction of the best value. 0 means no signal; higher is more certain."""
+    values = sorted(medians.values(), reverse=True)
+    if len(values) < 2 or values[0] == 0:
         return 0.0
-    return values[0] - values[1]
+    return (values[0] - values[1]) / values[0]

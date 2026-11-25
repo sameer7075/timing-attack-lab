@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
-from backend.attacker.attack import PositionReport, ProbeBlocked, ProbeResult, recover_pin
+from attacker.attack import PositionReport, ProbeBlocked, ProbeResult, recover_pin
 
 from .auth import Target, attempt_login
 from .sessions import CHARSET, Session

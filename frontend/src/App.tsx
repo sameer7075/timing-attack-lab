@@ -34,6 +34,7 @@ export default function App() {
   const [useServerTime, setUseServerTime] = useState(false);
   const [attack, setAttack] = useState<AttackView | null>(null);
   const [attackError, setAttackError] = useState<string | null>(null);
+  const [viewPos, setViewPos] = useState<number | null>(null);
   const pollRef = useRef<number | null>(null);
 
   const [tourStep, setTourStep] = useState<number | null>(null);
@@ -105,6 +106,7 @@ export default function App() {
   async function startAttack() {
     if (!session) return;
     setAttackError(null);
+    setViewPos(null);
     try {
       const { attack_id } = await api.startAttack(session.session_id, target, samples, useServerTime);
       setAttack(await api.attackStatus(attack_id));
@@ -156,6 +158,18 @@ export default function App() {
 
   const running = attack?.status === "running";
   const length = session?.pin_length ?? pinLength;
+
+  const history = attack?.history ?? [];
+  const liveIdx = Math.min(attack?.position ?? 0, length - 1);
+  // While running, follow the live position. Once finished, default to
+  // position 0 (usually the clearest signal) unless the user picked a tab.
+  const shownIdx = viewPos ?? (running ? liveIdx : 0);
+  const shownMedians = running
+    ? (attack?.candidate_medians_us ?? {})
+    : (history[shownIdx]?.medians_us ?? attack?.candidate_medians_us ?? {});
+  const shownPrefix = running
+    ? (attack?.recovered_so_far ?? "").slice(0, liveIdx)
+    : history.slice(0, shownIdx).map((h) => h.chosen).join("");
 
   return (
     <div className="frame">
@@ -233,7 +247,7 @@ export default function App() {
               <section className="sheet" data-tour="chart" aria-labelledby="chart-title">
                 <div className="sheet-head">
                   <h2 id="chart-title">
-                    {attack ? `Response time per digit, position ${Math.min(attack.position, length - 1) + 1}` : "Response time per digit"}
+                    {attack ? `Response time per digit, position ${shownIdx + 1}` : "Response time per digit"}
                   </h2>
                   {attack && (
                     <span className={`tag ${attack.target}`}>
@@ -242,12 +256,25 @@ export default function App() {
                     </span>
                   )}
                 </div>
+                {!running && history.length > 0 && (
+                  <div className="position-tabs" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                    {history.map((h) => (
+                      <button
+                        key={h.position}
+                        className={shownIdx === h.position ? "btn small" : "btn secondary small"}
+                        onClick={() => setViewPos(h.position)}
+                      >
+                        Position {h.position + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <CandidateChart
-                  medians={attack?.candidate_medians_us ?? {}}
+                  medians={shownMedians}
                   charset={session.charset}
                   target={attack?.target ?? target}
-                  position={Math.min(attack?.position ?? 0, length - 1)}
-                  prefix={(attack?.recovered_so_far ?? "").slice(0, Math.min(attack?.position ?? 0, length - 1))}
+                  position={shownIdx}
+                  prefix={shownPrefix}
                   pinLength={length}
                 />
               </section>
